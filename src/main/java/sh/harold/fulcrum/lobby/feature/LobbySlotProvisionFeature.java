@@ -49,7 +49,7 @@ public final class LobbySlotProvisionFeature implements LobbyFeature {
 
     @Override
     public int priority() {
-        return 300;
+        return 30;
     }
 
     @Override

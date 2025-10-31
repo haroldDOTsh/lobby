@@ -82,7 +82,7 @@ public final class ConfigLoaderFeature implements LobbyFeature {
 
     @Override
     public int priority() {
-        return 400;
+        return 10;
     }
 
     @Override

@@ -16,7 +16,7 @@ public final class LobbyFeatureManager {
 
     public void register(LobbyFeature feature) {
         registered.add(Objects.requireNonNull(feature, "feature"));
-        registered.sort(Comparator.comparingInt(LobbyFeature::priority).reversed());
+        registered.sort(Comparator.comparingInt(LobbyFeature::priority));
     }
 
     public void initializeAll(LobbyFeatureContext context) {
