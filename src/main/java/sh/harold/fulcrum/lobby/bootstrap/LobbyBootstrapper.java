@@ -9,9 +9,9 @@ import sh.harold.fulcrum.api.module.FulcrumEnvironment;
 import sh.harold.fulcrum.lobby.LobbyPlugin;
 import sh.harold.fulcrum.lobby.feature.ConfigLoaderFeature;
 import sh.harold.fulcrum.lobby.feature.LobbyFeatureManager;
+import sh.harold.fulcrum.lobby.feature.LobbySlotProvisionFeature;
 import sh.harold.fulcrum.lobby.feature.QueueBridgeFeature;
 import sh.harold.fulcrum.lobby.feature.SelectorUiFeature;
-import sh.harold.fulcrum.lobby.feature.WorldPasterFeature;
 
 public final class LobbyBootstrapper implements PluginBootstrap {
     private boolean shouldLoad;
@@ -29,7 +29,7 @@ public final class LobbyBootstrapper implements PluginBootstrap {
 
             LobbyFeatureManager manager = LobbyFeatureRegistry.prepare();
             manager.register(new ConfigLoaderFeature());
-            manager.register(new WorldPasterFeature());
+            manager.register(new LobbySlotProvisionFeature());
             manager.register(new SelectorUiFeature());
             manager.register(new QueueBridgeFeature());
             context.getLogger().info("Registered lobby features: " + manager.registeredFeatures().size());
