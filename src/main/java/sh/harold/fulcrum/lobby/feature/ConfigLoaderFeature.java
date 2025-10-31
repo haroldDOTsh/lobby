@@ -9,6 +9,7 @@ import sh.harold.fulcrum.lobby.config.LobbyConfiguration;
 import sh.harold.fulcrum.lobby.config.LobbyConfigurationRegistry;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -73,6 +74,26 @@ public final class ConfigLoaderFeature implements LobbyFeature {
     private static final String[] SPAWN_PROP_PATHS = {
             "modules.lobby.spawnProp",
             "lobby.spawnProp"
+    };
+
+    private static final String[] JOIN_DEFAULT_PATHS = {
+            "modules.lobby.joinMessages.default",
+            "lobby.joinMessages.default"
+    };
+
+    private static final String[] JOIN_DONATOR_PATHS = {
+            "modules.lobby.joinMessages.donator",
+            "lobby.joinMessages.donator"
+    };
+
+    private static final String[] JOIN_DONATOR_RANKS_PATHS = {
+            "modules.lobby.joinMessages.donatorRanks",
+            "lobby.joinMessages.donatorRanks"
+    };
+
+    private static final String[] JOIN_TOP_DONATOR_PATHS = {
+            "modules.lobby.joinMessages.topDonator",
+            "lobby.joinMessages.topDonator"
     };
 
     @Override
@@ -159,6 +180,15 @@ public final class ConfigLoaderFeature implements LobbyFeature {
         }
 
         builder.addAllMetadata(metadata);
+        firstNonBlank(networkConfig, JOIN_DEFAULT_PATHS).ifPresent(builder::joinDefaultMessage);
+        firstNonBlank(networkConfig, JOIN_DONATOR_PATHS).ifPresent(builder::joinDonatorMessage);
+        if (profile != null) {
+            List<String> donatorRanks = firstNonEmptyList(profile, JOIN_DONATOR_RANKS_PATHS);
+            if (!donatorRanks.isEmpty()) {
+                builder.joinDonatorRanks(donatorRanks);
+            }
+        }
+        firstNonBlank(networkConfig, JOIN_TOP_DONATOR_PATHS).ifPresent(builder::joinTopDonatorMessage);
         return builder.build();
     }
 
@@ -175,6 +205,22 @@ public final class ConfigLoaderFeature implements LobbyFeature {
             }
         }
         return Optional.empty();
+    }
+
+    private List<String> firstNonEmptyList(NetworkProfileView profile, String[] paths) {
+        if (profile == null || paths == null) {
+            return List.of();
+        }
+        for (String path : paths) {
+            List<String> values = profile.getStringList(path);
+            if (values != null && !values.isEmpty()) {
+                return values.stream()
+                        .map(String::trim)
+                        .filter(value -> !value.isEmpty())
+                        .toList();
+            }
+        }
+        return List.of();
     }
 
     private Optional<Integer> parseInteger(NetworkConfigService service, String[] paths) {
