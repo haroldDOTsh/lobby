@@ -21,14 +21,12 @@ public final class LobbyPlugin extends JavaPlugin implements FulcrumModule, Slot
 
     private LobbyFeatureManager featureManager;
     private LobbyFeatureContext featureContext;
-    private boolean enabled;
 
     @Override
     public void onEnable() {
         featureManager = LobbyFeatureRegistry.claim();
         featureContext = new LobbyFeatureContext(this);
         featureManager.initializeAll(featureContext);
-        enabled = true;
 
         getLogger().info("Lobby plugin enabled with " + featureManager.registeredFeatures().size() + " features");
     }
@@ -41,14 +39,8 @@ public final class LobbyPlugin extends JavaPlugin implements FulcrumModule, Slot
         LobbyFeatureRegistry.clear();
         featureManager = null;
         featureContext = null;
-        enabled = false;
 
         getLogger().info("Lobby plugin disabled");
-    }
-
-    @Override
-    public boolean isEnabled() {
-        return enabled;
     }
 
     @Override
