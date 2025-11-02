@@ -14,6 +14,8 @@ import sh.harold.fulcrum.api.rank.Rank;
 import sh.harold.fulcrum.api.rank.RankUtils;
 import sh.harold.fulcrum.lobby.config.LobbyConfiguration;
 import sh.harold.fulcrum.lobby.config.LobbyConfigurationRegistry;
+import sh.harold.fulcrum.lobby.system.LobbyFeature;
+import sh.harold.fulcrum.lobby.system.LobbyFeatureContext;
 
 import java.util.Locale;
 import java.util.Objects;
@@ -27,9 +29,9 @@ import java.util.logging.Logger;
  */
 public final class LobbyJoinMessageFeature implements LobbyFeature, Listener {
     private static final LegacyComponentSerializer LEGACY = LegacyComponentSerializer.legacyAmpersand();
-    private static final String DEFAULT_JOIN_MESSAGE = "&7%player% has joined the lobby!";
-    private static final String DEFAULT_DONATOR_JOIN_MESSAGE = "&6>>> %player% has joined the lobby! <<<";
-    private static final String DEFAULT_TOP_DONATOR_JOIN_MESSAGE = "&d[MVP++] %player% has entered!";
+    private static final String DEFAULT_JOIN_MESSAGE = "%player% &7joined the lobby!";
+    private static final String DEFAULT_DONATOR_JOIN_MESSAGE = "%player% &6joined the lobby!";
+    private static final String DEFAULT_TOP_DONATOR_JOIN_MESSAGE = "&b>&c>&a> %player% &6has joined the lobby! &a<&c<&b<";
 
     private JavaPlugin plugin;
     private Logger logger;

@@ -7,16 +7,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 import sh.harold.fulcrum.api.module.BootstrapContextHolder;
 import sh.harold.fulcrum.api.module.FulcrumEnvironment;
 import sh.harold.fulcrum.lobby.LobbyPlugin;
-import sh.harold.fulcrum.lobby.feature.ConfigLoaderFeature;
-import sh.harold.fulcrum.lobby.feature.LobbyActionFlagFeature;
-import sh.harold.fulcrum.lobby.feature.LobbyFeatureManager;
-import sh.harold.fulcrum.lobby.feature.LobbyJoinMessageFeature;
-import sh.harold.fulcrum.lobby.feature.LobbySlotProvisionFeature;
-import sh.harold.fulcrum.lobby.feature.LobbyScoreboardFeature;
-import sh.harold.fulcrum.lobby.feature.QueueBridgeFeature;
-import sh.harold.fulcrum.lobby.feature.SelectorUiFeature;
-import sh.harold.fulcrum.lobby.feature.LobbyNametagFeature;
-import sh.harold.fulcrum.lobby.feature.StaffPunchFeature;
 
 public final class LobbyBootstrapper implements PluginBootstrap {
     private boolean shouldLoad;
@@ -31,18 +21,6 @@ public final class LobbyBootstrapper implements PluginBootstrap {
                 shouldLoad = false;
                 return;
             }
-
-            LobbyFeatureManager manager = LobbyFeatureRegistry.prepare();
-            manager.register(new ConfigLoaderFeature());
-            manager.register(new LobbyActionFlagFeature());
-            manager.register(new LobbyJoinMessageFeature());
-            manager.register(new LobbySlotProvisionFeature());
-            manager.register(new LobbyScoreboardFeature());
-            manager.register(new LobbyNametagFeature());
-            manager.register(new StaffPunchFeature());
-            manager.register(new SelectorUiFeature());
-            manager.register(new QueueBridgeFeature());
-            context.getLogger().info("Registered lobby features: " + manager.registeredFeatures().size());
             shouldLoad = true;
         } finally {
             BootstrapContextHolder.clearContext();

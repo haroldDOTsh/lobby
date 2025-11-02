@@ -1,5 +1,8 @@
 package sh.harold.fulcrum.lobby.feature;
 
+import sh.harold.fulcrum.lobby.system.LobbyFeature;
+import sh.harold.fulcrum.lobby.system.LobbyFeatureContext;
+
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;

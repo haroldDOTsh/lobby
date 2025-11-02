@@ -1,5 +1,8 @@
 package sh.harold.fulcrum.lobby.feature;
 
+import sh.harold.fulcrum.lobby.system.LobbyFeature;
+import sh.harold.fulcrum.lobby.system.LobbyFeatureContext;
+
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;

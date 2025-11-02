@@ -5,12 +5,19 @@ import sh.harold.fulcrum.api.module.FulcrumModule;
 import sh.harold.fulcrum.api.module.ModuleInfo;
 import sh.harold.fulcrum.api.slot.SlotFamilyDescriptor;
 import sh.harold.fulcrum.api.slot.SlotFamilyProvider;
-import sh.harold.fulcrum.lobby.bootstrap.LobbyFeatureRegistry;
-import sh.harold.fulcrum.lobby.feature.LobbyFeatureContext;
-import sh.harold.fulcrum.lobby.feature.LobbyFeatureManager;
+import sh.harold.fulcrum.lobby.system.LobbyFeatureContext;
 import sh.harold.fulcrum.lobby.config.LobbyConfiguration;
 import sh.harold.fulcrum.lobby.config.LobbyConfigurationRegistry;
-
+import sh.harold.fulcrum.lobby.system.ConfigLoaderFeature;
+import sh.harold.fulcrum.lobby.feature.LobbyActionFlagFeature;
+import sh.harold.fulcrum.lobby.feature.LobbyJoinMessageFeature;
+import sh.harold.fulcrum.lobby.feature.SelectorUiFeature;
+import sh.harold.fulcrum.lobby.feature.QueueBridgeFeature;
+import sh.harold.fulcrum.lobby.system.LobbyFeatureManager;
+import sh.harold.fulcrum.lobby.feature.LobbySlotProvisionFeature;
+import sh.harold.fulcrum.lobby.feature.LobbyScoreboardFeature;
+import sh.harold.fulcrum.lobby.feature.LobbyNametagFeature;
+import sh.harold.fulcrum.lobby.feature.StaffPunchFeature;
 import java.util.Collection;
 import java.util.List;
 
@@ -24,7 +31,8 @@ public final class LobbyPlugin extends JavaPlugin implements FulcrumModule, Slot
 
     @Override
     public void onEnable() {
-        featureManager = LobbyFeatureRegistry.claim();
+        featureManager = new LobbyFeatureManager();
+        registerFeatures(featureManager);
         featureContext = new LobbyFeatureContext(this);
         featureManager.initializeAll(featureContext);
 
@@ -36,7 +44,6 @@ public final class LobbyPlugin extends JavaPlugin implements FulcrumModule, Slot
         if (featureManager != null && featureContext != null) {
             featureManager.shutdownAll(featureContext);
         }
-        LobbyFeatureRegistry.clear();
         featureManager = null;
         featureContext = null;
 
@@ -48,5 +55,17 @@ public final class LobbyPlugin extends JavaPlugin implements FulcrumModule, Slot
         LobbyConfiguration configuration = LobbyConfigurationRegistry.current();
         SlotFamilyDescriptor descriptor = configuration.toDescriptor();
         return List.of(descriptor);
+    }
+
+    private void registerFeatures(LobbyFeatureManager manager) {
+        manager.register(new ConfigLoaderFeature());
+        manager.register(new LobbyActionFlagFeature());
+        manager.register(new LobbyJoinMessageFeature());
+        manager.register(new LobbySlotProvisionFeature());
+        manager.register(new LobbyScoreboardFeature());
+        manager.register(new LobbyNametagFeature());
+        manager.register(new StaffPunchFeature());
+        manager.register(new SelectorUiFeature());
+        manager.register(new QueueBridgeFeature());
     }
 }

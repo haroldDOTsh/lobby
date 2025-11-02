@@ -13,6 +13,8 @@ import org.bukkit.plugin.PluginManager;
 import sh.harold.fulcrum.fundamentals.actionflag.ActionFlagContexts;
 import sh.harold.fulcrum.fundamentals.actionflag.ActionFlagService;
 import sh.harold.fulcrum.lifecycle.ServiceLocatorImpl;
+import sh.harold.fulcrum.lobby.system.LobbyFeature;
+import sh.harold.fulcrum.lobby.system.LobbyFeatureContext;
 
 /**
  * Applies lobby action flag contexts to all players while they are on the lobby node.
