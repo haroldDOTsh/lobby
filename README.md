@@ -4,7 +4,7 @@ This template is for easy creation of Fulcrum modules. It ships the baseline ser
 
 ### Info
 
-- Minecraft Version: `1.21.8`
+- Minecraft Version: `1.21.10`
 - Protocol Version: `772`
 - Toolchain: Java 21, Gradle 8.14, Paper API + Fulcrum runtime 3.0.x
 
