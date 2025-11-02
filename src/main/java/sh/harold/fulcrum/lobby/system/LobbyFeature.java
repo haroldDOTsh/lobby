@@ -1,4 +1,4 @@
-package sh.harold.fulcrum.lobby.feature;
+package sh.harold.fulcrum.lobby.system;
 
 /**
  * Represents a lobby subsystem participating in the plugin lifecycle.

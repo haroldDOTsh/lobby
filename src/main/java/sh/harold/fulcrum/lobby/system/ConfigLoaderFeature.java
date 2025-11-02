@@ -1,4 +1,4 @@
-package sh.harold.fulcrum.lobby.feature;
+package sh.harold.fulcrum.lobby.system;
 
 import sh.harold.fulcrum.api.network.NetworkConfigService;
 import sh.harold.fulcrum.api.network.NetworkProfileView;

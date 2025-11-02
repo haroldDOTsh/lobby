@@ -1,4 +1,4 @@
-package sh.harold.fulcrum.lobby.feature;
+package sh.harold.fulcrum.lobby.system;
 
 import java.util.ArrayList;
 import java.util.Comparator;

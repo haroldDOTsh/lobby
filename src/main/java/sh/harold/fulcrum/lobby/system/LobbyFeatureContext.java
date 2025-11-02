@@ -1,4 +1,4 @@
-package sh.harold.fulcrum.lobby.feature;
+package sh.harold.fulcrum.lobby.system;
 
 import org.bukkit.plugin.java.JavaPlugin;
 
