@@ -13,9 +13,6 @@ import java.util.Set;
 public final class LobbyConfiguration {
     public static final String DEFAULT_FAMILY_ID = "lobby.main";
     public static final String DEFAULT_MAP_ID = "main_lobby";
-    public static final String DEFAULT_JOIN_MESSAGE = "&7%player% has joined the lobby!";
-    public static final String DEFAULT_DONATOR_JOIN_MESSAGE = "&6>>> %player% has joined the lobby! <<<";
-    public static final String DEFAULT_TOP_DONATOR_JOIN_MESSAGE = "&d[MVP++] %player% has entered!";
     private static final List<String> DEFAULT_DONATOR_RANKS = List.of(
             "DONATOR_1",
             "DONATOR_2",
@@ -55,10 +52,7 @@ public final class LobbyConfiguration {
                 .maxPlayers(120)
                 .playerEquivalentFactor(10)
                 .putMetadata("mapId", DEFAULT_MAP_ID)
-                .joinDefaultMessage(DEFAULT_JOIN_MESSAGE)
-                .joinDonatorMessage(DEFAULT_DONATOR_JOIN_MESSAGE)
                 .joinDonatorRanks(DEFAULT_DONATOR_RANKS)
-                .joinTopDonatorMessage(DEFAULT_TOP_DONATOR_JOIN_MESSAGE)
                 .build();
     }
 
@@ -134,10 +128,10 @@ public final class LobbyConfiguration {
         private int maxPlayers = 120;
         private int playerEquivalentFactor = 10;
         private final Map<String, String> metadata = new LinkedHashMap<>();
-        private String joinDefaultMessage = DEFAULT_JOIN_MESSAGE;
-        private String joinDonatorMessage = DEFAULT_DONATOR_JOIN_MESSAGE;
+        private String joinDefaultMessage;
+        private String joinDonatorMessage;
         private final Set<String> joinDonatorRanks = new LinkedHashSet<>(DEFAULT_DONATOR_RANKS);
-        private String joinTopDonatorMessage = DEFAULT_TOP_DONATOR_JOIN_MESSAGE;
+        private String joinTopDonatorMessage;
 
         public Builder familyId(String familyId) {
             if (familyId != null && !familyId.isBlank()) {
