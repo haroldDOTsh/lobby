@@ -12,6 +12,8 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
+import sh.harold.fulcrum.api.lifecycle.ServerIdentifier;
+import sh.harold.fulcrum.api.network.NetworkConfigService;
 import sh.harold.fulcrum.api.message.scoreboard.ScoreboardService;
 import sh.harold.fulcrum.api.message.scoreboard.ScoreboardBuilder;
 import sh.harold.fulcrum.api.message.scoreboard.module.ContentProvider;
@@ -36,11 +38,18 @@ import java.util.logging.Logger;
 public final class LobbyScoreboardFeature implements LobbyFeature, Listener {
     private static final String SCOREBOARD_ID = "lobby:main";
     private static final long RANK_REFRESH_INTERVAL_MS = TimeUnit.SECONDS.toMillis(1);
+    private static final String DEFAULT_HEADER_LABEL = "Lobby";
+    private static final String[] SCOREBOARD_TITLE_PATHS = {
+            "modules.scoreboard.title",
+            "scoreboard.title"
+    };
 
     private JavaPlugin plugin;
     private Logger logger;
     private ScoreboardService scoreboardService;
     private RankService rankService;
+    private ServerIdentifier serverIdentifier;
+    private String defaultScoreboardTitle;
 
     @Override
     public String id() {
@@ -61,6 +70,9 @@ public final class LobbyScoreboardFeature implements LobbyFeature, Listener {
         if (locator != null) {
             scoreboardService = locator.findService(ScoreboardService.class).orElse(null);
             rankService = locator.findService(RankService.class).orElse(null);
+            serverIdentifier = locator.findService(ServerIdentifier.class).orElse(null);
+            NetworkConfigService networkConfigService = locator.findService(NetworkConfigService.class).orElse(null);
+            defaultScoreboardTitle = resolveDefaultScoreboardTitle(networkConfigService);
         }
 
         if (scoreboardService == null) {
@@ -69,10 +81,12 @@ public final class LobbyScoreboardFeature implements LobbyFeature, Listener {
         }
 
         ScoreboardModule rankModule = new RankModule();
-        ScoreboardDefinition definition = new ScoreboardBuilder(SCOREBOARD_ID)
-                .headerLabel("Lobby")
-                .module(rankModule)
-                .build();
+        ScoreboardBuilder builder = new ScoreboardBuilder(SCOREBOARD_ID)
+                .headerLabel(resolveHeaderLabel());
+        if (defaultScoreboardTitle != null) {
+            builder.title(defaultScoreboardTitle);
+        }
+        ScoreboardDefinition definition = builder.module(rankModule).build();
 
         if (scoreboardService.isScoreboardRegistered(SCOREBOARD_ID)) {
             scoreboardService.unregisterScoreboard(SCOREBOARD_ID);
@@ -101,6 +115,8 @@ public final class LobbyScoreboardFeature implements LobbyFeature, Listener {
         rankService = null;
         plugin = null;
         logger = null;
+        serverIdentifier = null;
+        defaultScoreboardTitle = null;
     }
 
     @EventHandler
@@ -171,5 +187,31 @@ public final class LobbyScoreboardFeature implements LobbyFeature, Listener {
             String line = "&7Rank: &r" + prefix;
             return List.of(line);
         }
+    }
+
+    private String resolveHeaderLabel() {
+        if (serverIdentifier != null) {
+            String serverId = serverIdentifier.getServerId();
+            if (serverId != null && !serverId.isBlank()) {
+                return serverId;
+            }
+        }
+        return DEFAULT_HEADER_LABEL;
+    }
+
+    private String resolveDefaultScoreboardTitle(NetworkConfigService service) {
+        if (service == null) {
+            return null;
+        }
+        for (String path : SCOREBOARD_TITLE_PATHS) {
+            String value = service.getString(path)
+                    .map(String::trim)
+                    .filter(title -> !title.isEmpty())
+                    .orElse(null);
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
     }
 }
