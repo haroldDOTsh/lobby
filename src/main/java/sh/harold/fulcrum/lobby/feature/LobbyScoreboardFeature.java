@@ -12,6 +12,7 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitTask;
 import sh.harold.fulcrum.api.lifecycle.ServerIdentifier;
 import sh.harold.fulcrum.api.network.NetworkConfigService;
 import sh.harold.fulcrum.api.message.scoreboard.ScoreboardService;
@@ -50,6 +51,8 @@ public final class LobbyScoreboardFeature implements LobbyFeature, Listener {
     private RankService rankService;
     private ServerIdentifier serverIdentifier;
     private String defaultScoreboardTitle;
+    private String currentHeaderLabel = DEFAULT_HEADER_LABEL;
+    private BukkitTask serverIdMonitorTask;
 
     @Override
     public String id() {
@@ -80,23 +83,12 @@ public final class LobbyScoreboardFeature implements LobbyFeature, Listener {
             return;
         }
 
-        ScoreboardModule rankModule = new RankModule();
-        ScoreboardBuilder builder = new ScoreboardBuilder(SCOREBOARD_ID)
-                .headerLabel(resolveHeaderLabel());
-        if (defaultScoreboardTitle != null) {
-            builder.title(defaultScoreboardTitle);
-        }
-        ScoreboardDefinition definition = builder.module(rankModule).build();
-
-        if (scoreboardService.isScoreboardRegistered(SCOREBOARD_ID)) {
-            scoreboardService.unregisterScoreboard(SCOREBOARD_ID);
-        }
-        scoreboardService.registerScoreboard(SCOREBOARD_ID, definition);
+        registerScoreboardDefinition(resolveHeaderLabel());
 
         PluginManager pluginManager = plugin.getServer().getPluginManager();
         pluginManager.registerEvents(this, plugin);
 
-        Bukkit.getOnlinePlayers().forEach(player -> showScoreboard(player.getUniqueId()));
+        startServerIdMonitor();
         logger.info("Lobby scoreboard feature initialised.");
     }
 
@@ -109,6 +101,10 @@ public final class LobbyScoreboardFeature implements LobbyFeature, Listener {
             if (scoreboardService.isScoreboardRegistered(SCOREBOARD_ID)) {
                 scoreboardService.unregisterScoreboard(SCOREBOARD_ID);
             }
+        }
+        if (serverIdMonitorTask != null) {
+            serverIdMonitorTask.cancel();
+            serverIdMonitorTask = null;
         }
 
         scoreboardService = null;
@@ -135,6 +131,7 @@ public final class LobbyScoreboardFeature implements LobbyFeature, Listener {
         if (scoreboardService == null) {
             return;
         }
+        refreshScoreboardDefinitionIfNeeded();
         scoreboardService.showScoreboard(playerId, SCOREBOARD_ID);
         scoreboardService.refreshPlayerScoreboard(playerId);
     }
@@ -199,6 +196,39 @@ public final class LobbyScoreboardFeature implements LobbyFeature, Listener {
         return DEFAULT_HEADER_LABEL;
     }
 
+    private void registerScoreboardDefinition(String headerLabel) {
+        if (scoreboardService == null) {
+            return;
+        }
+        currentHeaderLabel = headerLabel != null && !headerLabel.isBlank()
+                ? headerLabel
+                : DEFAULT_HEADER_LABEL;
+        ScoreboardBuilder builder = new ScoreboardBuilder(SCOREBOARD_ID)
+                .headerLabel(currentHeaderLabel);
+        if (defaultScoreboardTitle != null) {
+            builder.title(defaultScoreboardTitle);
+        }
+        ScoreboardDefinition definition = builder
+                .module(new RankModule())
+                .build();
+        if (scoreboardService.isScoreboardRegistered(SCOREBOARD_ID)) {
+            scoreboardService.unregisterScoreboard(SCOREBOARD_ID);
+        }
+        scoreboardService.registerScoreboard(SCOREBOARD_ID, definition);
+        Bukkit.getOnlinePlayers().forEach(player -> {
+            UUID playerId = player.getUniqueId();
+            scoreboardService.showScoreboard(playerId, SCOREBOARD_ID);
+            scoreboardService.refreshPlayerScoreboard(playerId);
+        });
+    }
+
+    private void refreshScoreboardDefinitionIfNeeded() {
+        String desiredHeader = resolveHeaderLabel();
+        if (!Objects.equals(desiredHeader, currentHeaderLabel)) {
+            registerScoreboardDefinition(desiredHeader);
+        }
+    }
+
     private String resolveDefaultScoreboardTitle(NetworkConfigService service) {
         if (service == null) {
             return null;
@@ -213,5 +243,31 @@ public final class LobbyScoreboardFeature implements LobbyFeature, Listener {
             }
         }
         return null;
+    }
+
+    private void startServerIdMonitor() {
+        if (plugin == null || scoreboardService == null) {
+            return;
+        }
+        if (serverIdMonitorTask != null) {
+            return;
+        }
+        serverIdMonitorTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            if (scoreboardService == null) {
+                return;
+            }
+            refreshScoreboardDefinitionIfNeeded();
+            if (!isTemporaryIdentifier(currentHeaderLabel)) {
+                BukkitTask task = serverIdMonitorTask;
+                if (task != null) {
+                    task.cancel();
+                }
+                serverIdMonitorTask = null;
+            }
+        }, 20L, 20L);
+    }
+
+    private boolean isTemporaryIdentifier(String identifier) {
+        return identifier != null && identifier.startsWith("temp-");
     }
 }

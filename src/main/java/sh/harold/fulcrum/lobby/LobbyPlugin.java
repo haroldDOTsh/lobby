@@ -11,13 +11,12 @@ import sh.harold.fulcrum.lobby.config.LobbyConfigurationRegistry;
 import sh.harold.fulcrum.lobby.system.ConfigLoaderFeature;
 import sh.harold.fulcrum.lobby.feature.LobbyActionFlagFeature;
 import sh.harold.fulcrum.lobby.feature.LobbyJoinMessageFeature;
-import sh.harold.fulcrum.lobby.feature.SelectorUiFeature;
-import sh.harold.fulcrum.lobby.feature.QueueBridgeFeature;
 import sh.harold.fulcrum.lobby.system.LobbyFeatureManager;
 import sh.harold.fulcrum.lobby.feature.LobbySlotProvisionFeature;
 import sh.harold.fulcrum.lobby.feature.LobbyScoreboardFeature;
 import sh.harold.fulcrum.lobby.feature.LobbyNametagFeature;
 import sh.harold.fulcrum.lobby.feature.StaffPunchFeature;
+import sh.harold.fulcrum.lobby.feature.RankFlightFeature;
 import java.util.Collection;
 import java.util.List;
 
@@ -64,8 +63,7 @@ public final class LobbyPlugin extends JavaPlugin implements FulcrumModule, Slot
         manager.register(new LobbySlotProvisionFeature());
         manager.register(new LobbyScoreboardFeature());
         manager.register(new LobbyNametagFeature());
+        manager.register(new RankFlightFeature());
         manager.register(new StaffPunchFeature());
-        manager.register(new SelectorUiFeature());
-        manager.register(new QueueBridgeFeature());
     }
 }
