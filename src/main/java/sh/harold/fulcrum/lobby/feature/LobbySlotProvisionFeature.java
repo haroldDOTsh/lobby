@@ -179,15 +179,15 @@ public final class LobbySlotProvisionFeature implements LobbyFeature {
             teardownSlot(instance, SlotLifecycleStatus.FAULTED, Map.of("error", "paste-result-null"));
             return;
         }
-        if (!result.isSuccess()) {
-            logger.warning("World paste failed for slot " + instance.slotId + ": " + result.getMessage());
-            teardownSlot(instance, SlotLifecycleStatus.FAULTED, Map.of("error", result.getMessage()));
+        if (!result.success()) {
+            logger.warning("World paste failed for slot " + instance.slotId + ": " + result.message());
+            teardownSlot(instance, SlotLifecycleStatus.FAULTED, Map.of("error", result.message()));
             return;
         }
 
         instance.markReady();
-        instance.metadata.put("worldUpdatedAt", result.getWorld() != null
-                ? result.getWorld().getUpdatedAt().toString()
+        instance.metadata.put("worldUpdatedAt", result.world() != null
+                ? result.world().getUpdatedAt().toString()
                 : "");
 
         if (orchestrator != null) {
