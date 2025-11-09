@@ -13,18 +13,21 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
+import sh.harold.fulcrum.api.environment.directory.EnvironmentDescriptorView;
+import sh.harold.fulcrum.api.environment.directory.EnvironmentDirectoryService;
 import sh.harold.fulcrum.api.lifecycle.ServerIdentifier;
-import sh.harold.fulcrum.api.network.NetworkConfigService;
 import sh.harold.fulcrum.api.message.scoreboard.ScoreboardService;
 import sh.harold.fulcrum.api.message.scoreboard.ScoreboardBuilder;
 import sh.harold.fulcrum.api.message.scoreboard.module.ContentProvider;
 import sh.harold.fulcrum.api.message.scoreboard.module.DynamicContentProvider;
 import sh.harold.fulcrum.api.message.scoreboard.module.ScoreboardModule;
 import sh.harold.fulcrum.api.message.scoreboard.registry.ScoreboardDefinition;
+import sh.harold.fulcrum.api.module.FulcrumEnvironment;
 import sh.harold.fulcrum.api.rank.Rank;
 import sh.harold.fulcrum.api.rank.RankService;
 import sh.harold.fulcrum.api.rank.RankUtils;
 import sh.harold.fulcrum.lifecycle.ServiceLocatorImpl;
+import sh.harold.fulcrum.lobby.system.EnvironmentSettings;
 
 import java.util.List;
 import java.util.Map;
@@ -46,7 +49,7 @@ public final class LobbyScoreboardFeature implements LobbyFeature, Listener {
     private static final long RANK_REFRESH_TASK_INTERVAL_TICKS = 100L;
     private static final String DEFAULT_HEADER_LABEL = "Lobby";
     private static final String[] SCOREBOARD_TITLE_PATHS = {
-            "modules.scoreboard.title",
+            "lobby.scoreboard.title",
             "scoreboard.title"
     };
 
@@ -82,8 +85,9 @@ public final class LobbyScoreboardFeature implements LobbyFeature, Listener {
             scoreboardService = locator.findService(ScoreboardService.class).orElse(null);
             rankService = locator.findService(RankService.class).orElse(null);
             serverIdentifier = locator.findService(ServerIdentifier.class).orElse(null);
-            NetworkConfigService networkConfigService = locator.findService(NetworkConfigService.class).orElse(null);
-            defaultScoreboardTitle = resolveDefaultScoreboardTitle(networkConfigService);
+            EnvironmentDirectoryService directoryService = locator.findService(EnvironmentDirectoryService.class)
+                    .orElse(null);
+            defaultScoreboardTitle = resolveDefaultScoreboardTitle(directoryService);
         }
 
         if (scoreboardService == null) {
@@ -229,20 +233,24 @@ public final class LobbyScoreboardFeature implements LobbyFeature, Listener {
         }
     }
 
-    private String resolveDefaultScoreboardTitle(NetworkConfigService service) {
+    private String resolveDefaultScoreboardTitle(EnvironmentDirectoryService service) {
+        EnvironmentDescriptorView descriptor = resolveEnvironmentDescriptor(service);
+        if (descriptor == null) {
+            return null;
+        }
+        Map<String, Object> settings = descriptor.settings();
+        return EnvironmentSettings.getString(settings, SCOREBOARD_TITLE_PATHS).orElse(null);
+    }
+
+    private EnvironmentDescriptorView resolveEnvironmentDescriptor(EnvironmentDirectoryService service) {
         if (service == null) {
             return null;
         }
-        for (String path : SCOREBOARD_TITLE_PATHS) {
-            String value = service.getString(path)
-                    .map(String::trim)
-                    .filter(title -> !title.isEmpty())
-                    .orElse(null);
-            if (value != null) {
-                return value;
-            }
+        String environmentId = FulcrumEnvironment.getCurrent();
+        if (environmentId == null || environmentId.isBlank()) {
+            return null;
         }
-        return null;
+        return service.getEnvironment(environmentId).orElse(null);
     }
 
     private void startServerIdMonitor() {

@@ -17,6 +17,7 @@ import java.util.logging.Logger;
 
 public final class ConfigLoaderFeature implements LobbyFeature {
     private static final String FAMILY_ID_KEY = "lobby.familyId";
+    private static final String FAMILY_VARIANT_KEY = "lobby.familyVariant";
     private static final String MAP_ID_KEY = "lobby.mapId";
     private static final String METADATA_KEY = "lobby.metadata";
     private static final String JOIN_DEFAULT_KEY = "lobby.joinMessages.default";
@@ -41,6 +42,7 @@ public final class ConfigLoaderFeature implements LobbyFeature {
         LobbyConfigurationRegistry.update(configuration);
         context.register(LobbyConfiguration.class, configuration);
         logger.info(() -> "Lobby configuration resolved (family=" + configuration.familyId()
+                + ", variant=" + configuration.familyVariant()
                 + ", map=" + configuration.mapId() + ")");
 
         ServiceLocatorImpl locator = ServiceLocatorImpl.getInstance();
@@ -76,11 +78,14 @@ public final class ConfigLoaderFeature implements LobbyFeature {
                 .orElse(LobbyConfiguration.DEFAULT_FAMILY_ID);
         String mapId = EnvironmentSettings.getString(settings, MAP_ID_KEY)
                 .orElse(LobbyConfiguration.DEFAULT_MAP_ID);
+        String familyVariant = EnvironmentSettings.getString(settings, FAMILY_VARIANT_KEY)
+                .orElse(null);
         int minPlayers = normalizeMinPlayers(descriptor.minPlayers());
         int maxPlayers = normalizeMaxPlayers(minPlayers, descriptor.maxPlayers());
         int playerFactor = normalizePlayerFactor(descriptor.playerFactor());
 
         builder.familyId(familyId)
+                .familyVariant(familyVariant)
                 .mapId(mapId)
                 .minPlayers(minPlayers)
                 .maxPlayers(maxPlayers)

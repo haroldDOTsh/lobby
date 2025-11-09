@@ -78,7 +78,8 @@ public final class LobbySlotProvisionFeature implements LobbyFeature {
         }
 
         orchestrator.addProvisionListener(slot -> handleProvision(context, slot));
-        logger.info("Lobby slot provisioning feature ready (family=" + configuration.familyId() + ").");
+        logger.info("Lobby slot provisioning feature ready (family=" + configuration.familyId()
+                + ", variant=" + configuration.familyVariant() + ").");
     }
 
     @Override
@@ -94,7 +95,7 @@ public final class LobbySlotProvisionFeature implements LobbyFeature {
     }
 
     private void handleProvision(LobbyFeatureContext context, SimpleSlotOrchestrator.ProvisionedSlot slot) {
-        if (!configuration.familyId().equalsIgnoreCase(slot.familyId())) {
+        if (!isTargetSlot(slot)) {
             return;
         }
         if (!provisioningSlots.add(slot.slotId())) {
@@ -226,6 +227,38 @@ public final class LobbySlotProvisionFeature implements LobbyFeature {
             });
             Bukkit.unloadWorld(world, false);
         }
+    }
+
+    private boolean isTargetSlot(SimpleSlotOrchestrator.ProvisionedSlot slot) {
+        if (!configuration.familyId().equalsIgnoreCase(slot.familyId())) {
+            return false;
+        }
+        String expectedVariant = normalizeVariant(configuration.familyVariant());
+        if (expectedVariant == null) {
+            return true;
+        }
+        String slotVariant = normalizeVariant(slot.variant());
+        if (slotVariant == null || slotVariant.equals(expectedVariant)) {
+            if (slotVariant == null) {
+                logger.fine(() -> "Provision for slot " + slot.slotId() + " missing variant; "
+                        + "handling as '" + expectedVariant + "' for backward compatibility.");
+            }
+            return true;
+        }
+        logger.fine(() -> "Ignoring provision for slot " + slot.slotId() + " (variant="
+                + slot.variant() + "); expected '" + expectedVariant + "'.");
+        return false;
+    }
+
+    private String normalizeVariant(String variant) {
+        if (variant == null) {
+            return null;
+        }
+        String trimmed = variant.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        return trimmed.toLowerCase(Locale.ROOT);
     }
 
     private Optional<LoadedWorld> locateTemplate(String mapId) {

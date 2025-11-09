@@ -6,12 +6,14 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
 public final class LobbyConfiguration {
-    public static final String DEFAULT_FAMILY_ID = "lobby.main";
+    public static final String DEFAULT_FAMILY_ID = "lobby";
+    public static final String DEFAULT_FAMILY_VARIANT = "main";
     public static final String DEFAULT_MAP_ID = "main_lobby";
     public static final int DEFAULT_PLAYER_EQUIVALENT_FACTOR = 1;
     private static final List<String> DEFAULT_DONATOR_RANKS = List.of(
@@ -22,6 +24,7 @@ public final class LobbyConfiguration {
     );
 
     private final String familyId;
+    private final String familyVariant;
     private final String mapId;
     private final int minPlayers;
     private final int maxPlayers;
@@ -34,6 +37,7 @@ public final class LobbyConfiguration {
 
     private LobbyConfiguration(Builder builder) {
         this.familyId = builder.familyId;
+        this.familyVariant = builder.familyVariant;
         this.mapId = builder.mapId;
         this.minPlayers = builder.minPlayers;
         this.maxPlayers = builder.maxPlayers;
@@ -48,6 +52,7 @@ public final class LobbyConfiguration {
     public static LobbyConfiguration defaults() {
         return builder()
                 .familyId(DEFAULT_FAMILY_ID)
+                .familyVariant(DEFAULT_FAMILY_VARIANT)
                 .mapId(DEFAULT_MAP_ID)
                 .minPlayers(0)
                 .maxPlayers(120)
@@ -67,6 +72,10 @@ public final class LobbyConfiguration {
 
     public String mapId() {
         return mapId;
+    }
+
+    public String familyVariant() {
+        return familyVariant;
     }
 
     public int minPlayers() {
@@ -111,6 +120,7 @@ public final class LobbyConfiguration {
     public Builder toBuilder() {
         return builder()
                 .familyId(familyId)
+                .familyVariant(familyVariant)
                 .mapId(mapId)
                 .minPlayers(minPlayers)
                 .maxPlayers(maxPlayers)
@@ -124,6 +134,7 @@ public final class LobbyConfiguration {
 
     public static final class Builder {
         private String familyId = DEFAULT_FAMILY_ID;
+        private String familyVariant = DEFAULT_FAMILY_VARIANT;
         private String mapId = DEFAULT_MAP_ID;
         private int minPlayers = 0;
         private int maxPlayers = 120;
@@ -135,8 +146,30 @@ public final class LobbyConfiguration {
         private String joinTopDonatorMessage;
 
         public Builder familyId(String familyId) {
-            if (familyId != null && !familyId.isBlank()) {
-                this.familyId = familyId.trim();
+            if (familyId == null || familyId.isBlank()) {
+                return this;
+            }
+            String trimmed = familyId.trim();
+            int separatorIndex = trimmed.indexOf('.');
+            if (separatorIndex > 0 && separatorIndex < trimmed.length() - 1) {
+                this.familyId = trimmed.substring(0, separatorIndex);
+                if (shouldAdoptVariant()) {
+                    String derivedVariant = trimmed.substring(separatorIndex + 1);
+                    String normalized = normalizeVariant(derivedVariant);
+                    if (normalized != null) {
+                        this.familyVariant = normalized;
+                    }
+                }
+            } else {
+                this.familyId = trimmed;
+            }
+            return this;
+        }
+
+        public Builder familyVariant(String variant) {
+            String normalized = normalizeVariant(variant);
+            if (normalized != null) {
+                this.familyVariant = normalized;
             }
             return this;
         }
@@ -223,12 +256,36 @@ public final class LobbyConfiguration {
         }
 
         public LobbyConfiguration build() {
+            if (familyVariant == null || familyVariant.isBlank()) {
+                familyVariant = DEFAULT_FAMILY_VARIANT;
+            }
             if (metadata.containsKey("mapId")) {
                 metadata.put("mapId", metadata.get("mapId").trim());
             } else {
                 metadata.put("mapId", mapId);
             }
+            metadata.put("variant", familyVariant);
+            metadata.putIfAbsent("defaultVariant", familyVariant);
+            metadata.put("familyVariant", familyVariant);
+            metadata.put("family_variant", familyVariant);
             return new LobbyConfiguration(this);
+        }
+
+        private String normalizeVariant(String variant) {
+            if (variant == null) {
+                return null;
+            }
+            String trimmed = variant.trim();
+            if (trimmed.isEmpty()) {
+                return null;
+            }
+            return trimmed.toLowerCase(Locale.ROOT);
+        }
+
+        private boolean shouldAdoptVariant() {
+            return familyVariant == null
+                    || familyVariant.isBlank()
+                    || DEFAULT_FAMILY_VARIANT.equalsIgnoreCase(familyVariant);
         }
     }
 }
