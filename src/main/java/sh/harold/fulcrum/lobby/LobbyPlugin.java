@@ -18,6 +18,7 @@ import sh.harold.fulcrum.lobby.feature.LobbyNametagFeature;
 import sh.harold.fulcrum.lobby.feature.StaffPunchFeature;
 import sh.harold.fulcrum.lobby.feature.RankFlightFeature;
 import sh.harold.fulcrum.lobby.feature.LobbySpeedFeature;
+import sh.harold.fulcrum.lobby.feature.LobbyHotbarFeature;
 import java.util.Collection;
 import java.util.List;
 
@@ -62,6 +63,7 @@ public final class LobbyPlugin extends JavaPlugin implements FulcrumModule, Slot
         manager.register(new LobbyActionFlagFeature());
         manager.register(new LobbyJoinMessageFeature());
         manager.register(new LobbySlotProvisionFeature());
+        manager.register(new LobbyHotbarFeature());
         manager.register(new LobbyScoreboardFeature());
         manager.register(new LobbyNametagFeature());
         manager.register(new LobbySpeedFeature());

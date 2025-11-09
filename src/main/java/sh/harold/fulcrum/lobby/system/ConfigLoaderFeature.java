@@ -1,100 +1,28 @@
 package sh.harold.fulcrum.lobby.system;
 
-import sh.harold.fulcrum.api.network.NetworkConfigService;
-import sh.harold.fulcrum.api.network.NetworkProfileView;
-import sh.harold.fulcrum.fundamentals.slot.discovery.SlotFamilyService;
+import sh.harold.fulcrum.api.environment.directory.EnvironmentDescriptorView;
+import sh.harold.fulcrum.api.environment.directory.EnvironmentDirectoryService;
+import sh.harold.fulcrum.api.module.FulcrumEnvironment;
 import sh.harold.fulcrum.fundamentals.slot.SimpleSlotOrchestrator;
+import sh.harold.fulcrum.fundamentals.slot.discovery.SlotFamilyService;
 import sh.harold.fulcrum.lifecycle.ServiceLocatorImpl;
 import sh.harold.fulcrum.lobby.config.LobbyConfiguration;
 import sh.harold.fulcrum.lobby.config.LobbyConfigurationRegistry;
 
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Objects;
 import java.util.logging.Logger;
 
 public final class ConfigLoaderFeature implements LobbyFeature {
-    private static final String[] FAMILY_PATHS = {
-            "modules.lobby.familyId",
-            "lobby.familyId"
-    };
-
-    private static final String[] MAP_PATHS = {
-            "modules.lobby.mapId",
-            "lobby.mapId"
-    };
-
-    private static final String[] MIN_PLAYERS_PATHS = {
-            "modules.lobby.minPlayers",
-            "lobby.minPlayers"
-    };
-
-    private static final String[] MAX_PLAYERS_PATHS = {
-            "modules.lobby.maxPlayers",
-            "lobby.maxPlayers"
-    };
-
-    private static final String[] PLAYER_FACTOR_PATHS = {
-            "modules.lobby.playerEquivalentFactor",
-            "lobby.playerEquivalentFactor"
-    };
-
-    private static final String[] SPAWN_WORLD_PATHS = {
-            "modules.lobby.spawn.world",
-            "lobby.spawn.world"
-    };
-
-    private static final String[] SPAWN_X_PATHS = {
-            "modules.lobby.spawn.x",
-            "lobby.spawn.x"
-    };
-
-    private static final String[] SPAWN_Y_PATHS = {
-            "modules.lobby.spawn.y",
-            "lobby.spawn.y"
-    };
-
-    private static final String[] SPAWN_Z_PATHS = {
-            "modules.lobby.spawn.z",
-            "lobby.spawn.z"
-    };
-
-    private static final String[] SPAWN_YAW_PATHS = {
-            "modules.lobby.spawn.yaw",
-            "lobby.spawn.yaw"
-    };
-
-    private static final String[] SPAWN_PITCH_PATHS = {
-            "modules.lobby.spawn.pitch",
-            "lobby.spawn.pitch"
-    };
-
-    private static final String[] SPAWN_PROP_PATHS = {
-            "modules.lobby.spawnProp",
-            "lobby.spawnProp"
-    };
-
-    private static final String[] JOIN_DEFAULT_PATHS = {
-            "modules.lobby.joinMessages.default",
-            "lobby.joinMessages.default"
-    };
-
-    private static final String[] JOIN_DONATOR_PATHS = {
-            "modules.lobby.joinMessages.donator",
-            "lobby.joinMessages.donator"
-    };
-
-    private static final String[] JOIN_DONATOR_RANKS_PATHS = {
-            "modules.lobby.joinMessages.donatorRanks",
-            "lobby.joinMessages.donatorRanks"
-    };
-
-    private static final String[] JOIN_TOP_DONATOR_PATHS = {
-            "modules.lobby.joinMessages.topDonator",
-            "lobby.joinMessages.topDonator"
-    };
+    private static final String FAMILY_ID_KEY = "lobby.familyId";
+    private static final String MAP_ID_KEY = "lobby.mapId";
+    private static final String METADATA_KEY = "lobby.metadata";
+    private static final String JOIN_DEFAULT_KEY = "lobby.joinMessages.default";
+    private static final String JOIN_DONATOR_KEY = "lobby.joinMessages.donator";
+    private static final String JOIN_DONATOR_RANKS_KEY = "lobby.joinMessages.donatorRanks";
+    private static final String JOIN_TOP_DONATOR_KEY = "lobby.joinMessages.topDonator";
 
     @Override
     public String id() {
@@ -117,7 +45,7 @@ public final class ConfigLoaderFeature implements LobbyFeature {
 
         ServiceLocatorImpl locator = ServiceLocatorImpl.getInstance();
         if (locator != null) {
-            locator.findService(SlotFamilyService.class).ifPresent(service -> service.refreshDescriptors());
+            locator.findService(SlotFamilyService.class).ifPresent(SlotFamilyService::refreshDescriptors);
             locator.findService(SimpleSlotOrchestrator.class).ifPresent(SimpleSlotOrchestrator::advertiseFamilies);
         }
     }
@@ -129,132 +57,114 @@ public final class ConfigLoaderFeature implements LobbyFeature {
     }
 
     private LobbyConfiguration resolveConfiguration(Logger logger) {
-        ServiceLocatorImpl locator = ServiceLocatorImpl.getInstance();
-        NetworkConfigService networkConfig = locator != null
-                ? locator.findService(NetworkConfigService.class).orElse(null)
-                : null;
-
         LobbyConfiguration.Builder builder = LobbyConfiguration.builder();
-        if (networkConfig == null) {
-            logger.warning("NetworkConfigService unavailable; using default lobby configuration.");
+        EnvironmentDescriptorView descriptor = resolveDescriptor(logger);
+
+        if (descriptor == null) {
+            if (logger != null) {
+                logger.warning("Environment descriptor unavailable; using default lobby configuration.");
+            }
             return builder.build();
         }
 
-        NetworkProfileView profile = networkConfig.getActiveProfile();
-        String familyId = firstNonBlank(networkConfig, FAMILY_PATHS)
+        Map<String, Object> settings = descriptor.settings();
+        if (settings == null) {
+            settings = Map.of();
+        }
+
+        String familyId = EnvironmentSettings.getString(settings, FAMILY_ID_KEY)
                 .orElse(LobbyConfiguration.DEFAULT_FAMILY_ID);
-        String mapId = firstNonBlank(networkConfig, MAP_PATHS)
+        String mapId = EnvironmentSettings.getString(settings, MAP_ID_KEY)
                 .orElse(LobbyConfiguration.DEFAULT_MAP_ID);
-        int minPlayers = parseInteger(networkConfig, MIN_PLAYERS_PATHS).orElse(0);
-        int maxPlayers = parseInteger(networkConfig, MAX_PLAYERS_PATHS).orElse(120);
-        int playerFactor = parseInteger(networkConfig, PLAYER_FACTOR_PATHS).orElse(10);
+        int minPlayers = normalizeMinPlayers(descriptor.minPlayers());
+        int maxPlayers = normalizeMaxPlayers(minPlayers, descriptor.maxPlayers());
+        int playerFactor = normalizePlayerFactor(descriptor.playerFactor());
 
         builder.familyId(familyId)
                 .mapId(mapId)
                 .minPlayers(minPlayers)
                 .maxPlayers(maxPlayers)
-                .playerEquivalentFactor(playerFactor);
+                .playerEquivalentFactor(playerFactor)
+                .addAllMetadata(resolveMetadata(mapId, settings));
 
-        Map<String, String> metadata = new LinkedHashMap<>();
-        metadata.put("mapId", mapId);
-        firstNonBlank(networkConfig, SPAWN_WORLD_PATHS).ifPresent(value -> metadata.put("spawnWorld", value));
-        firstNonBlank(networkConfig, SPAWN_PROP_PATHS).ifPresent(value -> metadata.put("spawnProp", value));
-        putIfPresent(metadata, "spawnX", parseDecimal(networkConfig, SPAWN_X_PATHS));
-        putIfPresent(metadata, "spawnY", parseDecimal(networkConfig, SPAWN_Y_PATHS));
-        putIfPresent(metadata, "spawnZ", parseDecimal(networkConfig, SPAWN_Z_PATHS));
-        putIfPresent(metadata, "spawnYaw", parseDecimal(networkConfig, SPAWN_YAW_PATHS));
-        putIfPresent(metadata, "spawnPitch", parseDecimal(networkConfig, SPAWN_PITCH_PATHS));
-
-        Map<String, Object> customMetadata = profile != null
-                ? profile.getMap("modules.lobby.metadata")
-                : Map.of();
-        if (customMetadata.isEmpty() && profile != null) {
-            customMetadata = profile.getMap("lobby.metadata");
+        EnvironmentSettings.getString(settings, JOIN_DEFAULT_KEY).ifPresent(builder::joinDefaultMessage);
+        EnvironmentSettings.getString(settings, JOIN_DONATOR_KEY).ifPresent(builder::joinDonatorMessage);
+        List<String> donatorRanks = EnvironmentSettings.getStringList(settings, JOIN_DONATOR_RANKS_KEY);
+        if (!donatorRanks.isEmpty()) {
+            builder.joinDonatorRanks(donatorRanks);
         }
-        if (!customMetadata.isEmpty()) {
-            customMetadata.forEach((key, value) -> {
-                if (key != null && value != null) {
-                    metadata.putIfAbsent(key, value.toString());
-                }
-            });
-        }
-
-        builder.addAllMetadata(metadata);
-        firstNonBlank(networkConfig, JOIN_DEFAULT_PATHS).ifPresent(builder::joinDefaultMessage);
-        firstNonBlank(networkConfig, JOIN_DONATOR_PATHS).ifPresent(builder::joinDonatorMessage);
-        if (profile != null) {
-            List<String> donatorRanks = firstNonEmptyList(profile, JOIN_DONATOR_RANKS_PATHS);
-            if (!donatorRanks.isEmpty()) {
-                builder.joinDonatorRanks(donatorRanks);
-            }
-        }
-        firstNonBlank(networkConfig, JOIN_TOP_DONATOR_PATHS).ifPresent(builder::joinTopDonatorMessage);
+        EnvironmentSettings.getString(settings, JOIN_TOP_DONATOR_KEY).ifPresent(builder::joinTopDonatorMessage);
         return builder.build();
     }
 
-    private Optional<String> firstNonBlank(NetworkConfigService service, String[] paths) {
-        if (paths == null) {
-            return Optional.empty();
-        }
-        for (String path : paths) {
-            Optional<String> value = service.getString(path)
-                    .map(String::trim)
-                    .filter(str -> !str.isEmpty());
-            if (value.isPresent()) {
-                return value;
+    private EnvironmentDescriptorView resolveDescriptor(Logger logger) {
+        ServiceLocatorImpl locator = ServiceLocatorImpl.getInstance();
+        if (locator == null) {
+            if (logger != null) {
+                logger.warning("Service locator unavailable; cannot resolve environment descriptor.");
             }
+            return null;
         }
-        return Optional.empty();
-    }
 
-    private List<String> firstNonEmptyList(NetworkProfileView profile, String[] paths) {
-        if (profile == null || paths == null) {
-            return List.of();
-        }
-        for (String path : paths) {
-            List<String> values = profile.getStringList(path);
-            if (values != null && !values.isEmpty()) {
-                return values.stream()
-                        .map(String::trim)
-                        .filter(value -> !value.isEmpty())
-                        .toList();
+        EnvironmentDirectoryService directoryService = locator.findService(EnvironmentDirectoryService.class)
+                .orElse(null);
+        if (directoryService == null) {
+            if (logger != null) {
+                logger.warning("EnvironmentDirectoryService unavailable; cannot load lobby settings.");
             }
+            return null;
         }
-        return List.of();
-    }
 
-    private Optional<Integer> parseInteger(NetworkConfigService service, String[] paths) {
-        return firstNonBlank(service, paths).map(value -> {
-            try {
-                return Integer.parseInt(value);
-            } catch (NumberFormatException ex) {
-                return null;
+        String environmentId = FulcrumEnvironment.getCurrent();
+        if (environmentId == null || environmentId.isBlank()) {
+            if (logger != null) {
+                logger.warning("Active Fulcrum environment unknown; cannot resolve lobby descriptor.");
             }
-        }).filter(value -> value != null);
-    }
+            return null;
+        }
 
-    private Optional<String> parseDecimal(NetworkConfigService service, String[] paths) {
-        return firstNonBlank(service, paths).map(value -> {
-            try {
-                double parsed = Double.parseDouble(value);
-                return trimTrailingZeros(parsed);
-            } catch (NumberFormatException ex) {
-                return null;
+        return directoryService.getEnvironment(environmentId).orElseGet(() -> {
+            if (logger != null) {
+                logger.warning("Environment '" + environmentId + "' missing from directory; using defaults.");
             }
-        }).filter(value -> value != null);
+            return null;
+        });
     }
 
-    private void putIfPresent(Map<String, String> metadata, String key, Optional<String> value) {
-        value.ifPresent(v -> metadata.put(key, v));
+    private int normalizeMinPlayers(int rawMin) {
+        return Math.max(0, rawMin);
     }
 
-    private String trimTrailingZeros(double value) {
-        if (Double.isNaN(value) || Double.isInfinite(value)) {
-            return Double.toString(value);
+    private int normalizeMaxPlayers(int minPlayers, int rawMax) {
+        int normalized = rawMax <= 0 ? minPlayers : rawMax;
+        if (normalized < minPlayers) {
+            normalized = minPlayers;
         }
-        if (value == Math.rint(value)) {
-            return String.format(Locale.ROOT, "%.0f", value);
+        return Math.max(1, normalized);
+    }
+
+    private int normalizePlayerFactor(double rawFactor) {
+        if (!Double.isFinite(rawFactor) || rawFactor <= 0.0D) {
+            return LobbyConfiguration.DEFAULT_PLAYER_EQUIVALENT_FACTOR;
         }
-        return Double.toString(value);
+        int rounded = (int) Math.round(rawFactor);
+        return Math.max(LobbyConfiguration.DEFAULT_PLAYER_EQUIVALENT_FACTOR, rounded);
+    }
+
+    private Map<String, String> resolveMetadata(String mapId, Map<String, Object> settings) {
+        Map<String, String> metadata = new LinkedHashMap<>();
+        metadata.put("mapId", mapId);
+
+        Map<String, Object> configured = EnvironmentSettings.getObjectMap(settings, METADATA_KEY);
+        configured.forEach((key, value) -> {
+            if (key == null || value == null) {
+                return;
+            }
+            String normalized = Objects.toString(value, "").trim();
+            if (!normalized.isEmpty()) {
+                metadata.putIfAbsent(key, normalized);
+            }
+        });
+        return metadata;
     }
 }

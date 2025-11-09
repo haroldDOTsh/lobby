@@ -13,6 +13,7 @@ import java.util.Set;
 public final class LobbyConfiguration {
     public static final String DEFAULT_FAMILY_ID = "lobby.main";
     public static final String DEFAULT_MAP_ID = "main_lobby";
+    public static final int DEFAULT_PLAYER_EQUIVALENT_FACTOR = 1;
     private static final List<String> DEFAULT_DONATOR_RANKS = List.of(
             "DONATOR_1",
             "DONATOR_2",
@@ -50,7 +51,7 @@ public final class LobbyConfiguration {
                 .mapId(DEFAULT_MAP_ID)
                 .minPlayers(0)
                 .maxPlayers(120)
-                .playerEquivalentFactor(10)
+                .playerEquivalentFactor(DEFAULT_PLAYER_EQUIVALENT_FACTOR)
                 .putMetadata("mapId", DEFAULT_MAP_ID)
                 .joinDonatorRanks(DEFAULT_DONATOR_RANKS)
                 .build();
@@ -126,7 +127,7 @@ public final class LobbyConfiguration {
         private String mapId = DEFAULT_MAP_ID;
         private int minPlayers = 0;
         private int maxPlayers = 120;
-        private int playerEquivalentFactor = 10;
+        private int playerEquivalentFactor = DEFAULT_PLAYER_EQUIVALENT_FACTOR;
         private final Map<String, String> metadata = new LinkedHashMap<>();
         private String joinDefaultMessage;
         private String joinDonatorMessage;
@@ -161,7 +162,7 @@ public final class LobbyConfiguration {
         }
 
         public Builder playerEquivalentFactor(int playerEquivalentFactor) {
-            this.playerEquivalentFactor = Math.max(10, playerEquivalentFactor);
+            this.playerEquivalentFactor = Math.max(DEFAULT_PLAYER_EQUIVALENT_FACTOR, playerEquivalentFactor);
             return this;
         }
 
