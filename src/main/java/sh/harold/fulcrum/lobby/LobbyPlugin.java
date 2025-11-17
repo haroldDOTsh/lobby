@@ -17,8 +17,8 @@ import sh.harold.fulcrum.lobby.feature.LobbyScoreboardFeature;
 import sh.harold.fulcrum.lobby.feature.LobbyNametagFeature;
 import sh.harold.fulcrum.lobby.feature.StaffPunchFeature;
 import sh.harold.fulcrum.lobby.feature.RankFlightFeature;
-import sh.harold.fulcrum.lobby.feature.LobbySpeedFeature;
 import sh.harold.fulcrum.lobby.feature.LobbyHotbarFeature;
+import sh.harold.fulcrum.lobby.feature.LobbySpeedFeature;
 import java.util.Collection;
 import java.util.List;
 

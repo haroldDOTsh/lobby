@@ -8,7 +8,9 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.WorldCreator;
 import org.bukkit.generator.ChunkGenerator;
+import sh.harold.fulcrum.api.lifecycle.ServerIdentifier;
 import sh.harold.fulcrum.api.messagebus.messages.SlotLifecycleStatus;
+import sh.harold.fulcrum.api.messagebus.messages.SlotProvisionCommand;
 import sh.harold.fulcrum.api.world.generator.VoidChunkGenerator;
 import sh.harold.fulcrum.fundamentals.slot.SimpleSlotOrchestrator;
 import sh.harold.fulcrum.fundamentals.world.WorldManager;
@@ -35,6 +37,7 @@ public final class LobbySlotProvisionFeature implements LobbyFeature {
     private static final double DEFAULT_SPAWN_X = 0.5;
     private static final double DEFAULT_SPAWN_Y = 64.0;
     private static final double DEFAULT_SPAWN_Z = 0.5;
+    private static final long BOOTSTRAP_RETRY_TICKS = 20L * 5;
 
     private final Set<String> provisioningSlots = ConcurrentHashMap.newKeySet();
     private final Map<String, LobbyInstance> activeSlots = new ConcurrentHashMap<>();
@@ -80,6 +83,7 @@ public final class LobbySlotProvisionFeature implements LobbyFeature {
         orchestrator.addProvisionListener(slot -> handleProvision(context, slot));
         logger.info("Lobby slot provisioning feature ready (family=" + configuration.familyId()
                 + ", variant=" + configuration.familyVariant() + ").");
+        requestInitialSlot(context);
     }
 
     @Override
@@ -113,6 +117,50 @@ public final class LobbySlotProvisionFeature implements LobbyFeature {
                 provisionSlot(context, slot);
             } finally {
                 provisioningSlots.remove(slot.slotId());
+            }
+        });
+    }
+
+    private void requestInitialSlot(LobbyFeatureContext context) {
+        if (orchestrator == null) {
+            return;
+        }
+        if (!activeSlots.isEmpty() || !provisioningSlots.isEmpty()) {
+            return;
+        }
+
+        ServiceLocatorImpl locator = ServiceLocatorImpl.getInstance();
+        ServerIdentifier identifier = locator != null
+                ? locator.findService(ServerIdentifier.class).orElse(null)
+                : null;
+        if (identifier == null) {
+            logger.warning("Unable to bootstrap lobby slot; server identifier unavailable.");
+            return;
+        }
+
+        SlotProvisionCommand command = new SlotProvisionCommand(identifier.getServerId(), configuration.familyId());
+        String variant = configuration.familyVariant();
+        if (variant != null && !variant.isBlank()) {
+            command.setVariant(variant);
+        }
+
+        Map<String, String> metadata = new LinkedHashMap<>();
+        metadata.put("mapId", configuration.mapId());
+        metadata.put("family", configuration.familyId());
+        metadata.put("source", "lobby-bootstrap");
+        command.setMetadata(metadata);
+
+        context.plugin().getServer().getScheduler().runTask(context.plugin(), () -> {
+            boolean accepted = orchestrator.handleProvisionCommand(command);
+            if (!accepted) {
+                logger.warning("Bootstrap lobby provision rejected; retrying shortly.");
+                context.plugin().getServer().getScheduler().runTaskLater(
+                        context.plugin(),
+                        () -> requestInitialSlot(context),
+                        BOOTSTRAP_RETRY_TICKS
+                );
+            } else {
+                logger.info("Bootstrap lobby slot provision dispatched on " + identifier.getServerId());
             }
         });
     }
@@ -293,7 +341,7 @@ public final class LobbySlotProvisionFeature implements LobbyFeature {
         creator.generator(resolveChunkGenerator());
         World world = creator.createWorld();
         if (world != null) {
-            world.setAutoSave(false);
+            world.setAutoSave(true);
         }
         return world;
     }

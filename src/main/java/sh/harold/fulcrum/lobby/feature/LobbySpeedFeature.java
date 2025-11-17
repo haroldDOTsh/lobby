@@ -105,10 +105,19 @@ public final class LobbySpeedFeature implements LobbyFeature, Listener {
             return;
         }
 
+        UUID playerId = player.getUniqueId();
         PotionEffect newEffect = event.getNewEffect();
-        if (newEffect != null && newEffect.getAmplifier() > SPEED_EFFECT.getAmplifier()) {
-            managed.remove(player.getUniqueId());
-            return;
+        if (newEffect != null) {
+            if (newEffect.getAmplifier() > SPEED_EFFECT.getAmplifier()) {
+                managed.remove(playerId);
+                return;
+            }
+            if (isLobbySpeedEffect(newEffect)) {
+                managed.add(playerId);
+                return;
+            }
+        } else {
+            managed.remove(playerId);
         }
 
         Bukkit.getScheduler().runTask(plugin, () -> applySpeedIfNeeded(player));
@@ -119,16 +128,31 @@ public final class LobbySpeedFeature implements LobbyFeature, Listener {
             return;
         }
 
+        UUID playerId = player.getUniqueId();
         PotionEffect current = player.getPotionEffect(PotionEffectType.SPEED);
-        if (current != null && current.getAmplifier() > SPEED_EFFECT.getAmplifier()) {
-            managed.remove(player.getUniqueId());
-            return;
+        if (current != null) {
+            if (current.getAmplifier() > SPEED_EFFECT.getAmplifier()) {
+                managed.remove(playerId);
+                return;
+            }
+            if (isLobbySpeedEffect(current)) {
+                managed.add(playerId);
+                return;
+            }
         }
 
         boolean applied = player.addPotionEffect(SPEED_EFFECT, true);
         if (applied) {
-            managed.add(player.getUniqueId());
+            managed.add(playerId);
         }
+    }
+
+    private static boolean isLobbySpeedEffect(PotionEffect effect) {
+        return effect.getAmplifier() == SPEED_EFFECT.getAmplifier()
+                && effect.isInfinite()
+                && effect.isAmbient() == SPEED_EFFECT.isAmbient()
+                && effect.hasParticles() == SPEED_EFFECT.hasParticles()
+                && effect.hasIcon() == SPEED_EFFECT.hasIcon();
     }
 
     private void removeManagedSpeed(Player player) {
