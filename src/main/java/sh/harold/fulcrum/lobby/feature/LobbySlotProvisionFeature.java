@@ -47,6 +47,7 @@ public final class LobbySlotProvisionFeature implements LobbyFeature {
     private WorldService worldService;
     private WorldManager worldManager;
     private Logger logger;
+    private volatile boolean shuttingDown;
 
     @Override
     public String id() {
@@ -60,6 +61,7 @@ public final class LobbySlotProvisionFeature implements LobbyFeature {
 
     @Override
     public void initialize(LobbyFeatureContext context) {
+        this.shuttingDown = false;
         this.logger = context.logger();
         this.configuration = context.get(LobbyConfiguration.class)
                 .orElseGet(LobbyConfigurationRegistry::current);
@@ -88,13 +90,14 @@ public final class LobbySlotProvisionFeature implements LobbyFeature {
 
     @Override
     public void shutdown(LobbyFeatureContext context) {
+        shuttingDown = true;
         if (activeSlots.isEmpty()) {
             return;
         }
         logger.info("Tearing down " + activeSlots.size() + " lobby slot(s).");
-        activeSlots.values().forEach(instance ->
-                context.plugin().getServer().getScheduler().runTask(context.plugin(), () ->
-                        teardownSlot(instance, SlotLifecycleStatus.COOLDOWN, Map.of("reason", "shutdown"))));
+        for (LobbyInstance instance : List.copyOf(activeSlots.values())) {
+            teardownSlot(instance, SlotLifecycleStatus.COOLDOWN, Map.of("reason", "shutdown"));
+        }
         activeSlots.clear();
     }
 
@@ -102,11 +105,15 @@ public final class LobbySlotProvisionFeature implements LobbyFeature {
         if (!isTargetSlot(slot)) {
             return;
         }
+        if (shuttingDown) {
+            logger.fine(() -> "Ignoring provision for slot " + slot.slotId() + " while shutting down.");
+            return;
+        }
         if (!provisioningSlots.add(slot.slotId())) {
             return;
         }
 
-        context.plugin().getServer().getScheduler().runTask(context.plugin(), () -> {
+        if (!runOnServerThread(context, () -> {
             if (!activeSlots.isEmpty()) {
                 logger.warning("Existing lobby slot detected; recycling before provisioning new slot " + slot.slotId());
                 for (LobbyInstance existing : List.copyOf(activeSlots.values())) {
@@ -118,7 +125,9 @@ public final class LobbySlotProvisionFeature implements LobbyFeature {
             } finally {
                 provisioningSlots.remove(slot.slotId());
             }
-        });
+        })) {
+            provisioningSlots.remove(slot.slotId());
+        }
     }
 
     private void requestInitialSlot(LobbyFeatureContext context) {
@@ -150,15 +159,18 @@ public final class LobbySlotProvisionFeature implements LobbyFeature {
         metadata.put("source", "lobby-bootstrap");
         command.setMetadata(metadata);
 
-        context.plugin().getServer().getScheduler().runTask(context.plugin(), () -> {
+        if (shuttingDown) {
+            logger.fine("Skipping lobby bootstrap request; shutdown in progress.");
+            return;
+        }
+
+        runOnServerThread(context, () -> {
             boolean accepted = orchestrator.handleProvisionCommand(command);
             if (!accepted) {
                 logger.warning("Bootstrap lobby provision rejected; retrying shortly.");
-                context.plugin().getServer().getScheduler().runTaskLater(
-                        context.plugin(),
-                        () -> requestInitialSlot(context),
-                        BOOTSTRAP_RETRY_TICKS
-                );
+                if (!scheduleLater(context, () -> requestInitialSlot(context), BOOTSTRAP_RETRY_TICKS)) {
+                    logger.fine("Bootstrap provision retry skipped; scheduler unavailable.");
+                }
             } else {
                 logger.info("Bootstrap lobby slot provision dispatched on " + identifier.getServerId());
             }
@@ -208,9 +220,13 @@ public final class LobbySlotProvisionFeature implements LobbyFeature {
 
         CompletableFuture<WorldPasteResult> pasteTask = worldManager
                 .pasteWorld(template.getId(), world, spawn.toBlockLocation())
-                .whenComplete((result, throwable) ->
-                        context.plugin().getServer().getScheduler().runTask(context.plugin(), () ->
-                                handlePasteCompletion(instance, result, throwable)));
+                .whenComplete((result, throwable) -> {
+                    if (!runOnServerThread(context, () ->
+                            handlePasteCompletion(instance, result, throwable))) {
+                        logger.fine(() -> "Skipping paste completion for slot " + instance.slotId
+                                + " due to shutdown or scheduler unavailability.");
+                    }
+                });
         instance.setPasteTask(pasteTask);
     }
 
@@ -403,6 +419,29 @@ public final class LobbySlotProvisionFeature implements LobbyFeature {
 
     private String buildWorldName(String slotId) {
         return "lobby_" + Objects.requireNonNull(slotId, "slotId").toLowerCase(Locale.ROOT);
+    }
+
+    private boolean runOnServerThread(LobbyFeatureContext context, Runnable runnable) {
+        if (shuttingDown) {
+            return false;
+        }
+        if (Bukkit.isPrimaryThread()) {
+            runnable.run();
+            return true;
+        }
+        if (!context.plugin().isEnabled()) {
+            return false;
+        }
+        context.plugin().getServer().getScheduler().runTask(context.plugin(), runnable);
+        return true;
+    }
+
+    private boolean scheduleLater(LobbyFeatureContext context, Runnable runnable, long delayTicks) {
+        if (shuttingDown || !context.plugin().isEnabled()) {
+            return false;
+        }
+        context.plugin().getServer().getScheduler().runTaskLater(context.plugin(), runnable, delayTicks);
+        return true;
     }
 
     private static final class LobbyInstance {
