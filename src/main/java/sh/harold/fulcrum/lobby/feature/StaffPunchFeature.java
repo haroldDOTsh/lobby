@@ -20,14 +20,22 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.util.Vector;
 import sh.harold.fulcrum.api.rank.Rank;
 import sh.harold.fulcrum.api.rank.RankUtils;
+import sh.harold.fulcrum.common.cooldown.CooldownAcquisition;
+import sh.harold.fulcrum.common.cooldown.CooldownKey;
+import sh.harold.fulcrum.common.cooldown.CooldownKeys;
+import sh.harold.fulcrum.common.cooldown.CooldownRegistry;
+import sh.harold.fulcrum.common.cooldown.CooldownSpec;
+import sh.harold.fulcrum.lifecycle.ServiceLocatorImpl;
 import sh.harold.fulcrum.lobby.system.LobbyFeature;
 import sh.harold.fulcrum.lobby.system.LobbyFeatureContext;
 
+import java.time.Duration;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.logging.Level;
 
 /**
  * Allows top donators to launch staff members into the sky with a left-click punch.
@@ -40,9 +48,11 @@ public final class StaffPunchFeature implements LobbyFeature, Listener {
     private static final int BUILD_UP_INTERVAL_TICKS = 4;
     private static final int TRAIL_DURATION_TICKS = 30;
     private static final int TRAIL_INTERVAL_TICKS = 2;
+    private static final Duration STAFF_PUNCH_COOLDOWN = Duration.ofSeconds(5L);
     private static final Particle.DustOptions WHITE_DUST = new Particle.DustOptions(Color.fromRGB(255, 255, 255), 1.35F);
 
     private JavaPlugin plugin;
+    private CooldownRegistry cooldownRegistry;
     private final Set<UUID> activeVictims = ConcurrentHashMap.newKeySet();
 
     @Override
@@ -58,6 +68,10 @@ public final class StaffPunchFeature implements LobbyFeature, Listener {
     @Override
     public void initialize(LobbyFeatureContext context) {
         this.plugin = context.plugin();
+        ServiceLocatorImpl locator = ServiceLocatorImpl.getInstance();
+        if (locator != null) {
+            cooldownRegistry = locator.findService(CooldownRegistry.class).orElse(null);
+        }
         PluginManager pluginManager = plugin.getServer().getPluginManager();
         pluginManager.registerEvents(this, plugin);
         context.logger().info("Staff punch feature initialised.");
@@ -66,6 +80,7 @@ public final class StaffPunchFeature implements LobbyFeature, Listener {
     @Override
     public void shutdown(LobbyFeatureContext context) {
         HandlerList.unregisterAll(this);
+        cooldownRegistry = null;
         this.plugin = null;
     }
 
@@ -88,6 +103,11 @@ public final class StaffPunchFeature implements LobbyFeature, Listener {
         }
 
         if (!RankUtils.isStaff(victim)) {
+            return;
+        }
+
+        if (!acquireStaffPunchTicket(attacker)) {
+            event.setCancelled(true);
             return;
         }
 
@@ -219,5 +239,39 @@ public final class StaffPunchFeature implements LobbyFeature, Listener {
         }
         NamedTextColor nameColor = Optional.ofNullable(rank.getNameColor()).orElse(NamedTextColor.WHITE);
         return prefix.append(Component.text(playerName, nameColor));
+    }
+
+    private boolean acquireStaffPunchTicket(Player attacker) {
+        if (attacker == null) {
+            return false;
+        }
+        if (cooldownRegistry == null) {
+            return true;
+        }
+        CooldownKey key = CooldownKeys.of("lobby", "staff-punch", attacker.getUniqueId(), null);
+        CooldownAcquisition acquisition;
+        try {
+            acquisition = cooldownRegistry.acquire(key, CooldownSpec.rejecting(STAFF_PUNCH_COOLDOWN))
+                    .toCompletableFuture()
+                    .join();
+        } catch (Exception exception) {
+            JavaPlugin owningPlugin = this.plugin;
+            if (owningPlugin != null) {
+                owningPlugin.getLogger().log(Level.WARNING, "Failed to acquire staff punch cooldown for "
+                        + attacker.getName(), exception);
+            }
+            return true;
+        }
+        if (acquisition instanceof CooldownAcquisition.Accepted) {
+            return true;
+        }
+        Duration remaining = acquisition instanceof CooldownAcquisition.Rejected rejected
+                ? rejected.remaining()
+                : STAFF_PUNCH_COOLDOWN;
+        long seconds = Math.max(1L, remaining.toSeconds());
+        attacker.sendMessage(Component.text(
+                "Whoa! Give staff a moment before launching them again (" + seconds + "s).",
+                NamedTextColor.RED));
+        return false;
     }
 }
