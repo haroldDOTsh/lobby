@@ -1,7 +1,5 @@
 package sh.harold.fulcrum.lobby.feature;
 
-import org.bukkit.attribute.Attribute;
-import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.HandlerList;
@@ -57,8 +55,7 @@ public final class LobbyHealthFeature implements LobbyFeature, Listener {
             return;
         }
 
-        AttributeInstance maxHealth = player.getAttribute(Attribute.GENERIC_MAX_HEALTH);
-        double ceiling = maxHealth != null ? maxHealth.getValue() : TARGET_HEALTH;
+        double ceiling = player.getMaxHealth();
         if (ceiling <= 0.0D) {
             ceiling = TARGET_HEALTH;
         }
