@@ -47,6 +47,13 @@ public final class CosmeticKeys {
         return SuitSlot.fromStorageSuffix(parts[2]);
     }
 
+    public static String suitPieceKey(String setId, SuitSlot slot) {
+        if (setId == null || slot == null) {
+            throw new IllegalArgumentException("setId and slot must be provided");
+        }
+        return normalizeId(setId) + ":" + slot.storageSuffix();
+    }
+
     public static String normalizeId(String raw) {
         if (raw == null) {
             return null;

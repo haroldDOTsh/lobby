@@ -41,4 +41,13 @@ public enum CosmeticSlot {
                 .filter(slot -> slot.storageKey.equals(normalized))
                 .findFirst();
     }
+
+    public static Optional<CosmeticSlot> primaryForCategory(CosmeticCategory category) {
+        if (category == null) {
+            return Optional.empty();
+        }
+        return Arrays.stream(values())
+                .filter(slot -> slot.category == category && slot.category != CosmeticCategory.SUIT)
+                .findFirst();
+    }
 }

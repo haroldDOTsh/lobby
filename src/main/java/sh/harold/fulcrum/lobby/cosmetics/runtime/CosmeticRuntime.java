@@ -144,6 +144,18 @@ public final class CosmeticRuntime implements Listener, AutoCloseable {
     }
 
     private void handleJoin(Player player) {
+        requestLoadout(player);
+    }
+
+    public void reloadPlayer(UUID playerId) {
+        Player player = plugin.getServer().getPlayer(playerId);
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+        requestLoadout(player);
+    }
+
+    private void requestLoadout(Player player) {
         UUID playerId = player.getUniqueId();
         loadoutService.loadout(playerId).whenComplete((loadout, throwable) -> {
             if (throwable != null) {
