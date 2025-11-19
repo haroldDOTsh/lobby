@@ -32,6 +32,7 @@ import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
+import sh.harold.fulcrum.api.menu.MenuService;
 import sh.harold.fulcrum.api.rank.RankUtils;
 import sh.harold.fulcrum.common.cooldown.CooldownAcquisition;
 import sh.harold.fulcrum.common.cooldown.CooldownKey;
@@ -40,6 +41,7 @@ import sh.harold.fulcrum.common.cooldown.CooldownRegistry;
 import sh.harold.fulcrum.common.cooldown.CooldownSpec;
 import sh.harold.fulcrum.common.settings.PlayerSettingsService;
 import sh.harold.fulcrum.lifecycle.ServiceLocatorImpl;
+import sh.harold.fulcrum.lobby.profile.ProfileMenu;
 import sh.harold.fulcrum.lobby.system.LobbyFeature;
 import sh.harold.fulcrum.lobby.system.LobbyFeatureContext;
 
@@ -70,6 +72,8 @@ public final class LobbyHotbarFeature implements LobbyFeature, Listener {
             "Player visibility enabled.", NamedTextColor.GREEN).decoration(TextDecoration.ITALIC, false);
     private static final Component VISIBILITY_DISABLED_FEEDBACK = Component.text(
             "Player visibility disabled.", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false);
+    private static final Component PROFILE_MENU_UNAVAILABLE = Component.text(
+            "Profile menu is unavailable right now.", NamedTextColor.RED).decoration(TextDecoration.ITALIC, false);
     private final Map<HotbarItem, ItemStack> prototypes = new EnumMap<>(HotbarItem.class);
     private final Set<UUID> hiddenPlayers = ConcurrentHashMap.newKeySet();
     private final Map<UUID, AtomicBoolean> pendingVisibilityLoads = new ConcurrentHashMap<>();
@@ -79,6 +83,7 @@ public final class LobbyHotbarFeature implements LobbyFeature, Listener {
     private CooldownRegistry cooldownRegistry;
     private PlayerSettingsService.GameSettingsScope lobbySettingsScope;
     private Logger logger;
+    private ProfileMenu profileMenu;
 
     @Override
     public String id() {
@@ -103,6 +108,10 @@ public final class LobbyHotbarFeature implements LobbyFeature, Listener {
                 lobbySettingsScope = settingsService.forGame(SETTINGS_SCOPE);
             }
             cooldownRegistry = locator.findService(CooldownRegistry.class).orElse(null);
+            MenuService locatedMenuService = locator.findService(MenuService.class).orElse(null);
+            if (locatedMenuService != null && plugin != null) {
+                profileMenu = new ProfileMenu(locatedMenuService, plugin);
+            }
         }
 
         PluginManager pluginManager = plugin.getServer().getPluginManager();
@@ -124,6 +133,7 @@ public final class LobbyHotbarFeature implements LobbyFeature, Listener {
         cooldownRegistry = null;
         lobbySettingsScope = null;
         logger = null;
+        profileMenu = null;
         hiddenPlayers.clear();
         pendingVisibilityLoads.clear();
     }
@@ -179,6 +189,9 @@ public final class LobbyHotbarFeature implements LobbyFeature, Listener {
             togglePlayerVisibility(player);
             event.setCancelled(true);
             scheduleHotbarRefresh(player);
+        } else if (item == HotbarItem.PROFILE) {
+            openProfileMenu(player);
+            event.setCancelled(true);
         }
     }
 
@@ -356,6 +369,18 @@ public final class LobbyHotbarFeature implements LobbyFeature, Listener {
         applyVisibilityState(player, enabled, true);
         player.sendMessage(enabled ? VISIBILITY_ENABLED_FEEDBACK : VISIBILITY_DISABLED_FEEDBACK);
         scheduleHotbarRefresh(player);
+    }
+
+    private void openProfileMenu(Player player) {
+        if (player == null) {
+            return;
+        }
+        ProfileMenu menu = this.profileMenu;
+        if (menu == null) {
+            player.sendMessage(PROFILE_MENU_UNAVAILABLE);
+            return;
+        }
+        menu.open(player);
     }
 
     private void applyVisibilityState(Player player, boolean enabled, boolean persist) {
