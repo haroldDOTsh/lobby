@@ -1,5 +1,9 @@
 package sh.harold.fulcrum.lobby.feature;
 
+import com.mojang.brigadier.Command;
+import io.papermc.paper.command.brigadier.CommandSourceStack;
+import io.papermc.paper.command.brigadier.Commands;
+import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
@@ -15,6 +19,7 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.util.Vector;
@@ -50,10 +55,16 @@ public final class StaffPunchFeature implements LobbyFeature, Listener {
     private static final int TRAIL_INTERVAL_TICKS = 2;
     private static final Duration STAFF_PUNCH_COOLDOWN = Duration.ofSeconds(5L);
     private static final Particle.DustOptions WHITE_DUST = new Particle.DustOptions(Color.fromRGB(255, 255, 255), 1.35F);
+    private static final Component PLAYER_ONLY_MESSAGE = Component.text("Only players can use this command.", NamedTextColor.RED);
+    private static final Component STAFF_ONLY_MESSAGE = Component.text("Only staff can turn off staff punches.", NamedTextColor.RED);
+    private static final Component OPT_OUT_ENABLED_MESSAGE = Component.text("Staff punches disabled. Donators cannot launch you.", NamedTextColor.GREEN);
+    private static final Component OPT_OUT_DISABLED_MESSAGE = Component.text("Staff punches enabled. Donators can launch you again.", NamedTextColor.YELLOW);
+    private static final Component PUNCHES_DISABLED_NOTICE = Component.text("That staff member has staff punches disabled.", NamedTextColor.RED);
 
     private JavaPlugin plugin;
     private CooldownRegistry cooldownRegistry;
     private final Set<UUID> activeVictims = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> punchOptOuts = ConcurrentHashMap.newKeySet();
 
     @Override
     public String id() {
@@ -74,14 +85,24 @@ public final class StaffPunchFeature implements LobbyFeature, Listener {
         }
         PluginManager pluginManager = plugin.getServer().getPluginManager();
         pluginManager.registerEvents(this, plugin);
+        registerCommandHandler();
         context.logger().info("Staff punch feature initialised.");
     }
 
     @Override
     public void shutdown(LobbyFeatureContext context) {
         HandlerList.unregisterAll(this);
+        activeVictims.clear();
+        punchOptOuts.clear();
         cooldownRegistry = null;
         this.plugin = null;
+    }
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        UUID playerId = event.getPlayer().getUniqueId();
+        activeVictims.remove(playerId);
+        punchOptOuts.remove(playerId);
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -106,6 +127,12 @@ public final class StaffPunchFeature implements LobbyFeature, Listener {
             return;
         }
 
+        if (punchOptOuts.contains(victim.getUniqueId())) {
+            event.setCancelled(true);
+            attacker.sendMessage(PUNCHES_DISABLED_NOTICE);
+            return;
+        }
+
         if (!acquireStaffPunchTicket(attacker)) {
             event.setCancelled(true);
             return;
@@ -113,6 +140,42 @@ public final class StaffPunchFeature implements LobbyFeature, Listener {
 
         event.setCancelled(true);
         beginPunchSequence(attacker, victim, attackerRank);
+    }
+
+    private void registerCommandHandler() {
+        if (plugin == null) {
+            return;
+        }
+        plugin.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
+            Commands commands = event.registrar();
+            commands.register(
+                    Commands.literal("dontpunchme")
+                            .executes(context -> handleDontPunchMeCommand(context.getSource()))
+                            .build(),
+                    "Toggle staff punch immunity"
+            );
+        });
+    }
+
+    private int handleDontPunchMeCommand(CommandSourceStack sourceStack) {
+        if (!(sourceStack.getSender() instanceof Player player)) {
+            sourceStack.getSender().sendMessage(PLAYER_ONLY_MESSAGE);
+            return Command.SINGLE_SUCCESS;
+        }
+        if (!RankUtils.isStaff(player)) {
+            player.sendMessage(STAFF_ONLY_MESSAGE);
+            return Command.SINGLE_SUCCESS;
+        }
+
+        UUID playerId = player.getUniqueId();
+        boolean optingOut = punchOptOuts.add(playerId);
+        if (!optingOut) {
+            punchOptOuts.remove(playerId);
+            player.sendMessage(OPT_OUT_DISABLED_MESSAGE);
+        } else {
+            player.sendMessage(OPT_OUT_ENABLED_MESSAGE);
+        }
+        return Command.SINGLE_SUCCESS;
     }
 
     private void beginPunchSequence(Player attacker, Player victim, Rank attackerRank) {
