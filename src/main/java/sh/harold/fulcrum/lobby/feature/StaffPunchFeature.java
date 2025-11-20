@@ -53,7 +53,7 @@ public final class StaffPunchFeature implements LobbyFeature, Listener {
     private static final int BUILD_UP_INTERVAL_TICKS = 4;
     private static final int TRAIL_DURATION_TICKS = 30;
     private static final int TRAIL_INTERVAL_TICKS = 2;
-    private static final Duration STAFF_PUNCH_COOLDOWN = Duration.ofSeconds(5L);
+    private static final Duration STAFF_PUNCH_COOLDOWN = Duration.ofSeconds(7L);
     private static final Particle.DustOptions WHITE_DUST = new Particle.DustOptions(Color.fromRGB(255, 255, 255), 1.35F);
     private static final Component PLAYER_ONLY_MESSAGE = Component.text("Only players can use this command.", NamedTextColor.RED);
     private static final Component STAFF_ONLY_MESSAGE = Component.text("Only staff can turn off staff punches.", NamedTextColor.RED);
