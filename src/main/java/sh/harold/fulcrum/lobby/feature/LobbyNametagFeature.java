@@ -206,6 +206,7 @@ public final class LobbyNametagFeature implements LobbyFeature, Listener {
         team.prefix(prefix);
         NamedTextColor nameColor = Optional.ofNullable(rank.getNameColor()).orElse(NamedTextColor.WHITE);
         team.color(nameColor);
+        team.setOption(Team.Option.COLLISION_RULE, Team.OptionStatus.NEVER);
 
         return team;
     }
