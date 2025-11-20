@@ -18,6 +18,22 @@ public record Vector3d(double x, double y, double z) {
         return new Vector3d(x * scalar, y * scalar, z * scalar);
     }
 
+    public Vector3d normalize() {
+        double length = length();
+        if (length <= 0.0D) {
+            return this;
+        }
+        return new Vector3d(x / length, y / length, z / length);
+    }
+
+    public Vector3d cross(Vector3d other) {
+        return new Vector3d(
+                y * other.z - z * other.y,
+                z * other.x - x * other.z,
+                x * other.y - y * other.x
+        );
+    }
+
     public double lengthSquared() {
         return x * x + y * y + z * z;
     }

@@ -124,15 +124,18 @@ public final class CosmeticRuntime implements Listener, AutoCloseable {
         teardown(event.getPlayer().getUniqueId());
     }
 
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onInteractEntity(PlayerInteractEntityEvent event) {
         if (!(event.getRightClicked() instanceof Player owner)) {
+            return;
+        }
+        if (event.getHand() != org.bukkit.inventory.EquipmentSlot.HAND) {
             return;
         }
         handleClick(owner, event.getPlayer());
     }
 
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onEntityDamage(EntityDamageByEntityEvent event) {
         if (!(event.getEntity() instanceof Player owner)) {
             return;
@@ -271,9 +274,7 @@ public final class CosmeticRuntime implements Listener, AutoCloseable {
         if (trail == null) {
             return;
         }
-        if (trail.shouldTrigger(context)) {
-            requests.add(new TickRequest(trail, context));
-        }
+        requests.add(new TickRequest(trail, context));
     }
 
     private void handleCloakTick(Player player, ActivePlayerState state, PlayerContext context, long now,
@@ -282,7 +283,11 @@ public final class CosmeticRuntime implements Listener, AutoCloseable {
         if (cloak == null) {
             return;
         }
-        boolean moving = context.velocity().lengthSquared() > MOVEMENT_EPSILON || !context.onGround();
+        boolean creativeFlying = player.isFlying();
+        boolean gliding = player.isGliding();
+        boolean moving = context.velocity().lengthSquared() > MOVEMENT_EPSILON
+                || gliding
+                || (!context.onGround() && !creativeFlying);
         if (moving) {
             state.lastMovementAt = now;
             if (state.cloakActive) {

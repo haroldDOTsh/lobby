@@ -28,13 +28,6 @@ public abstract non-sealed class ParticleTrailCosmetic implements Cosmetic {
     }
 
     /**
-     * Determines whether this trail should emit for the provided context.
-     */
-    public boolean shouldTrigger(PlayerContext ctx) {
-        return ctx.velocity().lengthSquared() > 0.0001D;
-    }
-
-    /**
      * Runs asynchronously and returns the particle instructions that should be flushed on the next tick.
      */
     public List<ParticleInstruction> tick(PlayerContext ctx) {
